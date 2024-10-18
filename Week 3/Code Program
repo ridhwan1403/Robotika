@@ -1,0 +1,80 @@
+1. Gerakan Maju
+from controller import Robot
+
+TIME_STEP = 64
+MAX_SPEED = 6.28
+
+robot = Robot()
+
+leftMotor = robot.getDevice('left wheel motor')
+rightMotor = robot.getDevice('right wheel motor')
+
+leftMotor.setPosition(float('inf'))
+rightMotor.setPosition(float('inf'))
+
+leftMotor.setVelocity(MAX_SPEED)
+rightMotor.setVelocity(MAX_SPEED)
+
+while robot.step(TIME_STEP) != -1:
+    pass
+
+
+
+2. Gerakan Melingkar
+from controller import Robot
+
+TIME_STEP = 64
+MAX_SPEED = 6.28
+
+robot = Robot()
+
+leftMotor = robot.getDevice('left wheel motor')
+rightMotor = robot.getDevice('right wheel motor')
+
+leftMotor.setPosition(float('inf'))
+rightMotor.setPosition(float('inf'))
+
+leftMotor.setVelocity(0.5 * MAX_SPEED)
+rightMotor.setVelocity(MAX_SPEED)
+
+while robot.step(TIME_STEP) != -1:
+    pass
+
+
+
+3. Penghentian Dengan Sensor Proximity
+from controller import Robot
+
+TIME_STEP = 64
+MAX_SPEED = 6.28
+DELAY_STEPS = 20
+
+robot = Robot()
+
+leftMotor = robot.getDevice('left wheel motor')
+rightMotor = robot.getDevice('right wheel motor')
+
+proximitySensor = robot.getDevice('ps0')
+
+leftMotor.setPosition(float('inf'))
+rightMotor.setPosition(float('inf'))
+
+print("Sensor proximity diaktifkan")
+proximitySensor.enable(TIME_STEP)
+
+for _ in range(DELAY_STEPS):
+    leftMotor.setVelocity(MAX_SPEED)
+    rightMotor.setVelocity(MAX_SPEED)
+    robot.step(TIME_STEP)
+
+while robot.step(TIME_STEP) != -1:
+    proximityValue = proximitySensor.getValue()
+    print("Nilai Sensor Proximity:", proximityValue)
+
+    if proximityValue < 100:
+        print("Objek terdeteksi, robot berhenti.")
+        leftMotor.setVelocity(0)
+        rightMotor.setVelocity(0)
+    else:
+        leftMotor.setVelocity(MAX_SPEED)
+        rightMotor.setVelocity(MAX_SPEED)
