@@ -1,0 +1,81 @@
+import heapq
+
+class Node:
+    def __init__(self, position, g=0, h=0):
+        self.position = position  # Posisi node (x, y)
+        self.g = g                # Biaya dari start ke node
+        self.h = h                # Biaya heuristik dari node ke goal
+        self.f = g + h            # Total biaya
+        self.parent = None        # Node sebelumnya untuk melacak jalur
+
+    def __lt__(self, other):
+        return self.f < other.f
+
+def heuristic(a, b):
+    # Menggunakan heuristik Manhattan
+    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+
+def a_star_search(start, goal, grid):
+    open_set = []
+    closed_set = set()
+
+    start_node = Node(start, 0, heuristic(start, goal))
+    heapq.heappush(open_set, start_node)
+
+    while open_set:
+        current_node = heapq.heappop(open_set)
+
+        if current_node.position == goal:
+            path = []
+            while current_node:
+                path.append(current_node.position)
+                current_node = current_node.parent
+            return path[::-1]  # Balikkan jalur dari goal ke start
+
+        closed_set.add(current_node.position)
+
+        x, y = current_node.position
+        neighbors = [(x + dx, y + dy) for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]]
+
+        for next_pos in neighbors:
+            if (0 <= next_pos[0] < len(grid)) and (0 <= next_pos[1] < len(grid[0])) and grid[next_pos[0]][next_pos[1]] == 0:
+                if next_pos in closed_set:
+                    continue
+
+                g_cost = current_node.g + 1
+                h_cost = heuristic(next_pos, goal)
+                neighbor_node = Node(next_pos, g_cost, h_cost)
+                neighbor_node.parent = current_node
+
+                if any(open_node.position == neighbor_node.position and open_node.g <= neighbor_node.g for open_node in open_set):
+                    continue
+
+                heapq.heappush(open_set, neighbor_node)
+
+    return None  # Tidak ditemukan jalur
+
+def print_grid(grid, path=None):
+    if path:
+        for pos in path:
+            grid[pos[0]][pos[1]] = 2  # Tandai jalur
+    for row in grid:
+        print(" ".join(str(cell) for cell in row))
+
+# Contoh penggunaan
+grid = [
+    [0, 0, 0, 0, 0],
+    [0, 1, 1, 1, 0],
+    [0, 0, 0, 0, 0],
+    [0, 1, 1, 0, 0],
+    [0, 0, 0, 0, 0]
+]
+
+start = (0, 0)  # Titik awal
+goal = (4, 4)   # Titik tujuan
+
+path = a_star_search(start, goal, grid)
+if path:
+    print("Jalur ditemukan:", path)
+    print_grid(grid, path)
+else:
+    print("Tidak ada jalur yang ditemukan.")
