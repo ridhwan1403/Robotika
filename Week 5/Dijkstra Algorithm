@@ -1,0 +1,65 @@
+import heapq
+
+def dijkstra(graph, start, end):
+    # Menyimpan jarak terpendek dari start ke setiap node
+    distances = {node: float('infinity') for node in graph}
+    distances[start] = 0
+
+    # Menyimpan jalur terpendek
+    previous_nodes = {node: None for node in graph}
+
+    # Prioritas queue untuk node yang akan diproses
+    priority_queue = [(0, start)]  # (jarak, node)
+
+    while priority_queue:
+        current_distance, current_node = heapq.heappop(priority_queue)
+
+        # Jika kita sudah mencapai node tujuan
+        if current_node == end:
+            break
+
+        # Jika jarak saat ini lebih besar dari jarak yang sudah ditemukan
+        if current_distance > distances[current_node]:
+            continue
+
+        # Memeriksa tetangga dari node saat ini
+        for neighbor, weight in graph[current_node].items():
+            distance = current_distance + weight
+
+            # Hanya memperbarui jika jarak baru lebih pendek
+            if distance < distances[neighbor]:
+                distances[neighbor] = distance
+                previous_nodes[neighbor] = current_node
+                heapq.heappush(priority_queue, (distance, neighbor))
+
+    # Menyusun jalur terpendek dari end ke start
+    path = []
+    current_node = end
+    while current_node is not None:
+        path.append(current_node)
+        current_node = previous_nodes[current_node]
+    path.reverse()
+
+    # Mengembalikan jalur dan total biaya
+    if distances[end] == float('infinity'):
+        return "Tidak ada jalur yang ditemukan."
+    return path, distances[end]
+
+# Contoh graf dalam bentuk dictionary
+graph = {
+    'A': {'B': 1, 'C': 4},
+    'B': {'A': 1, 'C': 2, 'D': 5},
+    'C': {'A': 4, 'B': 2, 'D': 1},
+    'D': {'B': 5, 'C': 1}
+}
+
+# Menentukan titik awal dan tujuan
+start = 'A'
+end = 'D'
+
+# Memanggil fungsi dijkstra
+shortest_path, total_cost = dijkstra(graph, start, end)
+
+# Menampilkan hasil
+print("Jalur terpendek:", shortest_path)
+print("Biaya total:", total_cost)
