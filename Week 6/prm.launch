@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="prm_project" type="prm.py" name="prm_node" output="screen" />
+</launch>
