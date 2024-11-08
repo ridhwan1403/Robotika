@@ -1,0 +1,5 @@
+num_nodes: 100
+map_limits: [0, 100]
+connection_radius: 15
+start: [10, 10]
+goal: [90, 90]
