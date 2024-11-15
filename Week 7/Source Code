@@ -1,0 +1,95 @@
+JetBot Basic Motion
+
+from controller import Robot, Motor
+
+robot = Robot()
+
+time_step = int(robot.getBasicTimeStep())
+
+left_motor = robot.getMotor('left_motor')
+right_motor = robot.getMotor('right_motor')
+
+left_motor.setPosition(float('inf'))
+right_motor.setPosition(float('inf'))
+left_motor.setVelocity(0.5)
+right_motor.setVelocity(0.5)
+
+for _ in range(1000):
+    robot.step(time_step)
+
+left_motor.setVelocity(0)
+right_motor.setVelocity(0)
+
+
+
+
+jetbot_collect_data
+
+import os
+from controller import Robot, Camera
+import time
+
+robot = Robot()
+camera = robot.getCamera('camera')
+camera.enable(int(robot.getBasicTimeStep()))
+
+free_path = 'dataset/free/'
+blocked_path = 'dataset/blocked/'
+
+os.makedirs(free_path, exist_ok=True)
+os.makedirs(blocked_path, exist_ok=True)
+
+def save_image(image, filename):
+    image_data = camera.getImageArray()
+    with open(filename, 'wb') as f:
+        f.write(image_data)
+
+for i in range(20):
+    filename = f'{free_path}image_{i}.ppm'
+    save_image(camera.getImage(), filename)
+    time.sleep(1)  # Delay between captures
+
+    filename = f'{blocked_path}image_{i}.ppm'
+    save_image(camera.getImage(), filename)
+    time.sleep(1)  # Delay between captures
+
+
+
+
+jetbot_collision_avoidance
+
+from controller import Robot, Camera, Motor
+import tensorflow as tf
+import numpy as np
+
+model = tf.keras.models.load_model('collision_avoidance_model.h5')
+
+robot = Robot()
+camera = robot.getCamera('camera')
+camera.enable(int(robot.getBasicTimeStep()))
+
+left_motor = robot.getMotor('left_motor')
+right_motor = robot.getMotor('right_motor')
+left_motor.setPosition(float('inf'))
+right_motor.setPosition(float('inf'))
+
+def predict_path(image_data):
+    # Preprocess image (resize, normalize, etc.)
+    image = np.expand_dims(image_data, axis=0)  # Add batch dimension
+    image = image / 255.0  # Normalize if required
+    prediction = model.predict(image)
+    return prediction
+
+while robot.step(int(robot.getBasicTimeStep())) != -1:
+    # Get camera image and predict the path
+    image = camera.getImageArray()  # Get current image from camera
+    prediction = predict_path(image)
+
+    if prediction == 'free':
+        # Move forward if the path is free
+        left_motor.setVelocity(0.5)
+        right_motor.setVelocity(0.5)
+    else:
+        # Turn right if there is an obstacle ahead
+        left_motor.setVelocity(0.0)
+        right_motor.setVelocity(0.5)
