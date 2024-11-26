@@ -1,0 +1,313 @@
+-  camera.py
+# Standard Library imports
+from itertools import count
+
+# External imports
+import cv2
+import numpy as np
+from controller import Robot, Display
+
+# Local imports
+from scanner import get_warped_document, resize_and_letter_box, segment_by_color
+
+
+TIME_STEP = 100
+HSV_LOW_RANGE = np.array([27, 0, 66])
+HSV_UP_RANGE = np.array([180, 38, 255])
+SAVE_TO_DISK = False
+
+
+def counter(_count=count(1)):
+    """https://stackoverflow.com/a/54715096/1253729"""
+    return next(_count)
+
+
+def save_image(image):
+    cv2.imwrite(f"image_{counter()}.jpg", image)
+
+
+def initialize():
+    robot = Robot()
+
+    camera = robot.getDevice("camera")
+    camera.enable(100)
+
+    display = robot.getDevice("image display")
+
+    return robot, camera, display
+
+
+def webots_image_to_numpy(im, h, w):
+    return np.frombuffer(im, dtype=np.uint8).reshape((h, w, 4))
+
+
+def display_numpy_image(im, display, display_width, display_height):
+    """Display a Numpy image in a Webots display"""
+
+    display_image = display.imageNew(
+        im.tobytes(), Display.BGRA, display_width, display_height
+    )
+    display.imagePaste(display_image, 0, 0, blend=False)
+    display.imageDelete(display_image)
+
+
+if __name__ == "__main__":
+    robot, camera, display = initialize()
+
+    camera_width = camera.getWidth()
+    camera_height = camera.getHeight()
+
+    display_width = display.getWidth()
+    display_height = display.getHeight()
+
+    print(f"Camera HxW: {camera_height}x{camera_width}")
+    print(f"Display HxW: {display_height}x{display_width}")
+
+    while robot.step(TIME_STEP) != -1:
+        webots_im = camera.getImage()
+        numpy_im = webots_image_to_numpy(webots_im, camera_height, camera_width)
+
+        if SAVE_TO_DISK:
+            save_image(cv2.cvtColor(numpy_im, cv2.COLOR_RGB2BGR))
+
+        mask = segment_by_color(numpy_im, HSV_LOW_RANGE, HSV_UP_RANGE)
+
+        try:
+            document = get_warped_document(numpy_im, mask, debug=False)
+            document = resize_and_letter_box(document, display_height, display_width)
+        except ValueError as e:
+            document = np.zeros((display_width, display_height, 4), dtype=np.uint8)
+            document[:, :, 0] = 255
+            print(e)
+
+        display_numpy_image(document, display, display_width, display_height)
+
+    robot.cleanup()
+
+
+-  scanner.py
+# Standard Library imports
+import argparse
+
+# External imports
+import numpy as np
+import cv2
+from imutils import resize
+
+
+def get_box_width(top_left, top_right, bottom_right, bottom_left):
+    """ """
+    x1, y1 = top_left
+    x2, y2 = top_right
+    width1 = np.hypot(x2 - x1, y2 - y1)
+
+    x1, y1 = bottom_left
+    x2, y2 = bottom_right
+    width2 = np.hypot(x2 - x1, y2 - y1)
+
+    width = int(max(width1, width2))
+
+    return width
+
+
+def get_box_height(top_left, top_right, bottom_right, bottom_left):
+    """ """
+    x1, y1 = top_left
+    x2, y2 = bottom_left
+    height1 = np.hypot(x2 - x1, y2 - y1)
+
+    x1, y1 = top_right
+    x2, y2 = bottom_right
+    height2 = np.hypot(x2 - x1, y2 - y1)
+
+    height = int(max(height1, height2))
+
+    return height
+
+
+def identify_corners(approx_contour):
+    """ """
+    # First point will be top left, last point will be bottom right
+    src_points = sorted(approx_contour, key=lambda p: p[0][0] + p[0][1])
+    src_points = [p[0] for p in src_points]
+
+    top_left, up1, up2, bottom_right = src_points
+
+    # The bottom left point is the one with greater y value
+    if up1[1] > top_left[1] and up1[0] < bottom_right[0]:
+        bottom_left = up1
+        top_right = up2
+    else:
+        bottom_left = up2
+        top_right = up1
+
+    return top_left, top_right, bottom_right, bottom_left
+
+
+def resize_and_letter_box(image, rows, cols, channels=4):
+    """
+    Modified from: https://stackoverflow.com/a/53623469/1253729
+    """
+    image_rows, image_cols = image.shape[:2]
+    row_ratio = rows / float(image_rows)
+    col_ratio = cols / float(image_cols)
+    ratio = min(row_ratio, col_ratio)
+    image_resized = cv2.resize(image, dsize=(0, 0), fx=ratio, fy=ratio)
+    letter_box = np.zeros((int(rows), int(cols), int(channels)), dtype=np.uint8)
+    row_start = int((letter_box.shape[0] - image_resized.shape[0]) / 2)
+    col_start = int((letter_box.shape[1] - image_resized.shape[1]) / 2)
+    letter_box[
+        row_start : row_start + image_resized.shape[0],
+        col_start : col_start + image_resized.shape[1],
+    ] = image_resized
+    return letter_box
+
+
+def validate_image_shape(width, height):
+    """ """
+    if width > height:
+        ratio = width / height
+    else:
+        ratio = height / width
+
+    if height < 250 or width < 250:
+        raise ValueError(f"Detected label is too small: H{height}xW{width}")
+    elif ratio > 3:
+        raise ValueError("Detected label is too thin")
+
+
+def segment_by_color(image, low_range, up_range):
+    """Transform an image to the HSV colorspace to segment a region of interest"""
+    if image.shape[2] == 4:
+        image = cv2.cvtColor(image, cv2.COLOR_BGRA2BGR)
+    im_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    mask = cv2.inRange(im_hsv, low_range, up_range)
+    return mask
+
+
+def get_warped_document(image, mask, debug=False):
+    """ """
+
+    contours, hierarchy = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+
+    # Keep top largest contours
+    contours = sorted(contours, key=cv2.contourArea, reverse=True)[:3]
+
+    # Loop to ensure the contour at hand has 4 vertices
+    for i in range(len(contours)):
+        contour = contours[i]
+
+        # Approximate the contour by a simpler curve whose length deviates at a max of
+        # 1% of the original length
+        contour_length = cv2.arcLength(contour, closed=True)
+        approx_contour = cv2.approxPolyDP(
+            contour, epsilon=contour_length * 0.01, closed=True
+        )
+
+        # Stop if the approx contour has 4 vertices
+        if len(approx_contour) == 4:
+            break
+
+    if debug:
+        # Draw the found approximate contour
+        cv2.drawContours(image, [approx_contour], 0, color=(0, 0, 255), thickness=10)
+        cv2.imshow("Contours", resize(image, 540))
+        cv2.waitKey(1)
+
+    top_left, top_right, bottom_right, bottom_left = identify_corners(approx_contour)
+
+    width = get_box_width(top_left, top_right, bottom_right, bottom_left)
+    height = get_box_height(top_left, top_right, bottom_right, bottom_left)
+
+    validate_image_shape(width, height)
+
+    # Adjust corner points for *vertical* warping based on image orientation
+    if height > width:
+        src_points = [top_left, top_right, bottom_right, bottom_left]
+    else:
+        src_points = [top_right, bottom_right, bottom_left, top_left]
+        width, height = height, width  # Swap width and height for a correct orientation
+
+    src_points = np.array(src_points, dtype=np.float32)
+    dst_points = np.array(
+        [[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]],
+        dtype="float32",
+    )
+
+    # Compute the perspective transform matrix and then apply it
+    M = cv2.getPerspectiveTransform(src_points, dst_points)
+    warped = cv2.warpPerspective(
+        image, M, (width, height), borderMode=cv2.BORDER_CONSTANT
+    )
+
+    return warped
+
+
+if __name__ == "__main__":
+
+    ap = argparse.ArgumentParser()
+    ap.add_argument(
+        "-i", "--image", required=True, type=str, help="Filename of input image"
+    )
+    args = vars(ap.parse_args())
+
+    image_path = args["image"]
+
+    image = cv2.imread(image_path)
+    mask = segment_by_color(image, np.array([27, 0, 66]), np.array([180, 38, 255]))
+    warped = get_warped_document(image, mask)
+
+    cv2.imshow("image", resize(image, 540))
+    cv2.waitKey(0)
+
+    cv2.imshow("warped", resize(warped, 540))
+    cv2.waitKey(0)
+
+
+-  conveyor_belt.py
+from controller import Supervisor
+
+from math import radians as rad
+import random
+
+TIME_STEP = 10000
+
+
+def initialize():
+    robot = Supervisor()
+
+    belt_motor = robot.getDevice("belt_motor")
+    belt_motor.setPosition(float("inf"))
+    belt_motor.setVelocity(0.15)
+
+    return robot
+
+
+def add_box(supervisor, model="1"):
+    root_node = supervisor.getRoot()  # get root of the scene tree
+    root_children_field = root_node.getField("children")
+
+    box_models = ["1", "2"]
+
+    # import at the end of the root children field
+    root_children_field.importMFNodeFromString(
+        -1,
+        """
+        CardboardBox1 {{
+        name "CardboardBox1 {rot}"
+        translation -0.16 8.2 0.94
+        rotation 0 0 1 {rot}
+        }}
+        """.format(
+            rot=rad(random.randint(0, 360)), model=random.choice(box_models)
+        ),
+    )
+
+
+if __name__ == "__main__":
+    supervisor = initialize()
+
+    while supervisor.step(TIME_STEP) != -1:
+        add_box(supervisor)
+
+    supervisor.cleanup()
