@@ -1,0 +1,210 @@
+- Ekstrasi Garis dengan Hough Transform
+import cv2
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Membaca gambar
+image = cv2.imread('image.jpg', 0)  # Gambar dalam mode grayscale
+
+# Deteksi tepi dengan Canny
+edges = cv2.Canny(image, 50, 150, apertureSize=3)
+
+# Ekstraksi garis dengan Hough Transform
+lines = cv2.HoughLinesP(edges, 1, np.pi / 180, 100, minLineLength=50, maxLineGap=10)
+
+# Menampilkan hasil
+img_lines = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)  # Mengubah ke format warna
+for line in lines:
+    x1, y1, x2, y2 = line[0]
+    cv2.line(img_lines, (x1, y1), (x2, y2), (0, 0, 255), 2)  # Menambahkan garis berwarna merah
+
+plt.imshow(img_lines)
+plt.title('Hough Transform - Line Detection')
+plt.axis('off')
+plt.show()
+
+
+- Template Matching untuk Deteksi Objek
+# Membaca gambar dan template
+img = cv2.imread('image.jpg', 0)
+template = cv2.imread('template.jpg', 0)
+
+# Mencari template dalam gambar
+res = cv2.matchTemplate(img, template, cv2.TM_CCOEFF_NORMED)
+threshold = 0.8
+loc = np.where(res >= threshold)
+
+# Menandai lokasi template pada gambar
+img_color = cv2.imread('image.jpg')
+for pt in zip(*loc[::-1]):
+    cv2.rectangle(img_color, pt, (pt[0] + template.shape[1], pt[1] + template.shape[0]), (0, 255, 0), 2)
+
+plt.imshow(cv2.cvtColor(img_color, cv2.COLOR_BGR2RGB))
+plt.title('Template Matching - Object Detection')
+plt.axis('off')
+plt.show()
+
+
+- Pembuatan Pyramid Gambar
+# Membaca gambar
+img = cv2.imread('image.jpg')
+
+# Membangun image pyramid
+layer = img.copy()
+gp = [layer]
+for i in range(6):  # Membuat 6 lapisan pyramid
+    layer = cv2.pyrDown(layer)
+    gp.append(layer)
+
+# Menampilkan pyramid
+fig, axes = plt.subplots(1, 7, figsize=(20, 20))
+for i in range(7):
+    axes[i].imshow(cv2.cvtColor(gp[i], cv2.COLOR_BGR2RGB))
+    axes[i].set_title(f'Level {i}')
+    axes[i].axis('off')
+plt.show()
+
+
+- Deteksi Lingkaran Menggunakan Hough Transform
+# Membaca gambar
+image = cv2.imread('image.jpg', 0)
+
+# Menggunakan Gaussian Blur untuk mengurangi noise
+blurred = cv2.GaussianBlur(image, (5, 5), 0)
+
+# Deteksi lingkaran menggunakan Hough Transform
+circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, dp=1.2, minDist=30, param1=50, param2=30, minRadius=10, maxRadius=100)
+
+# Menampilkan hasil
+if circles is not None:
+    circles = np.round(circles[0, :]).astype("int")
+    img_color = cv2.imread('image.jpg')
+    for (x, y, r) in circles:
+        cv2.circle(img_color, (x, y), r, (0, 255, 0), 4)  # Menambahkan lingkaran hijau
+        cv2.rectangle(img_color, (x - 5, y - 5), (x + 5, y + 5), (0, 128, 255), -1)  # Menambahkan titik tengah
+
+    plt.imshow(cv2.cvtColor(img_color, cv2.COLOR_BGR2RGB))
+    plt.title('Hough Transform - Circle Detection')
+    plt.axis('off')
+    plt.show()
+else:
+    print("No circles detected")
+
+
+- Ekstraksi Warna Dominan pada Gambar
+from sklearn.cluster import KMeans
+
+# Membaca gambar
+img = cv2.imread('image.jpg')
+
+# Mengubah gambar ke format RGB
+img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+
+# Melakukan reshape untuk K-means
+img_rgb = img_rgb.reshape((img_rgb.shape[0] * img_rgb.shape[1], 3))
+
+# Menggunakan K-means untuk menemukan warna dominan
+kmeans = KMeans(n_clusters=3)
+kmeans.fit(img_rgb)
+dominant_colors = kmeans.cluster_centers_
+
+# Menampilkan hasil
+dominant_colors = dominant_colors.astype(int)
+plt.imshow([dominant_colors])
+plt.title('Dominant Colors in Image')
+plt.axis('off')
+plt.show()
+
+
+- Deteksi Kontur pada Gambar
+# Membaca gambar
+img = cv2.imread('image.jpg', 0)
+
+# Menggunakan Canny untuk mendeteksi tepi
+edges = cv2.Canny(img, 100, 200)
+
+# Mencari kontur
+contours, hierarchy = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+# Menampilkan kontur
+img_color = cv2.imread('image.jpg')
+cv2.drawContours(img_color, contours, -1, (0, 255, 0), 2)  # Menambahkan kontur berwarna hijau
+
+plt.imshow(cv2.cvtColor(img_color, cv2.COLOR_BGR2RGB))
+plt.title('Contour Detection')
+plt.axis('off')
+plt.show()
+
+
+- Lidar Data Extraction and Obstacle Detection
+from controller import Robot
+
+# Konstanta waktu langkah simulasi
+TIME_STEP = 32
+
+# Indeks untuk sensor kiri dan kanan
+LEFT = 0
+RIGHT = 1
+
+# Inisialisasi robot
+robot = Robot()
+
+# Inisialisasi lidar
+lidar = robot.getDevice(lidar)
+lidar.enable(TIME_STEP)
+lidar.enablePointCloud()
+
+# Inisialisasi sensor jarak (ultrasonic)
+us = [robot.getDevice(us0), robot.getDevice(us1)]
+for sensor in us
+    sensor.enable(TIME_STEP)
+
+# Inisialisasi motor
+left_motor = robot.getDevice(left wheel motor)
+right_motor = robot.getDevice(right wheel motor)
+left_motor.setPosition(float('inf'))  # Aktifkan mode kecepatan
+right_motor.setPosition(float('inf'))  # Aktifkan mode kecepatan
+left_motor.setVelocity(0.0)
+right_motor.setVelocity(0.0)
+
+# Koefisien empiris untuk penghindaran tabrakan
+coefficients = [[12.0, -6.0], [-10.0, 8.0]]
+base_speed = 6.0
+
+# Fungsi untuk membaca data lidar
+def extract_lidar_data()
+    lidar_data = lidar.getRangeImage()
+    print(fLidar Data {lidar_data[10]}...)  # Menampilkan 10 data pertama
+    return lidar_data
+
+# Fungsi untuk membaca data dari sensor jarak
+def read_distance_sensors()
+    distances = [sensor.getValue() for sensor in us]
+    print(fDistance Sensor Readings Left={distances[LEFT].2f}, Right={distances[RIGHT].2f})
+    return distances
+
+# Fungsi untuk menghitung kecepatan berdasarkan data sensor
+def compute_speeds(us_values)
+    speed = [0.0, 0.0]
+    for i in range(2)
+        for k in range(2)
+            speed[i] += us_values[k]  coefficients[i][k]
+    return speed
+
+# Loop utama
+while robot.step(TIME_STEP) != -1
+    # Baca data lidar dan ekstrak informasi
+    lidar_data = extract_lidar_data()
+
+    # Baca data sensor jarak
+    us_values = read_distance_sensors()
+
+    # Hitung kecepatan roda berdasarkan data sensor
+    speeds = compute_speeds(us_values)
+
+    # Atur kecepatan motor
+    left_motor.setVelocity(base_speed + speeds[LEFT])
+    right_motor.setVelocity(base_speed + speeds[RIGHT])
+
+# Membersihkan memori setelah simulasi selesai
+robot.cleanup()
