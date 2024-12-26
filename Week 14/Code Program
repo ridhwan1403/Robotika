@@ -1,0 +1,35 @@
+- Kode Program Robotika Sederhana di Rust
+use rand::Rng;
+
+// Fungsi utama
+fn main() {
+    // Simulasi data sensor jarak dalam cm
+    let mut rng = rand::thread_rng();
+    let sensor_distance = rng.gen_range(0..100);
+
+    println!("Sensor Distance: {} cm", sensor_distance);
+
+    // Logika pengendalian robot
+    if sensor_distance > 50 {
+        move_forward();
+    } else if sensor_distance > 20 {
+        turn_left();
+    } else {
+        stop_robot();
+    }
+}
+
+// Fungsi untuk menggerakkan robot maju
+fn move_forward() {
+    println!("Robot is moving forward...");
+}
+
+// Fungsi untuk mengarahkan robot ke kiri
+fn turn_left() {
+    println!("Robot is turning left...");
+}
+
+// Fungsi untuk menghentikan robot
+fn stop_robot() {
+    println!("Robot has stopped.");
+}
